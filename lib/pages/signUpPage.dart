@@ -33,7 +33,6 @@ class _SignUpPageState extends State<SignUpPage> {
         password: passwordController.text.trim(),
       );
 
-      // الذهاب للصفحة الرئيسية بعد التسجيل
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const HomePage()),

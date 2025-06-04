@@ -1,12 +1,8 @@
-// HomePage.dart
-
-import 'package:app/pages/doctorPage.dart';
-import 'package:app/pages/loginPage.dart';
 import 'package:flutter/material.dart';
-import 'package:app/utils/common.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:app/pages/loginPage.dart';
+import 'package:app/pages/addOrEditDoctorPage.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -22,98 +18,43 @@ class HomePage extends StatelessWidget {
   }
 
   Stream<QuerySnapshot> getDoctorsStream() {
-    print("=========================================");
-    print(FirebaseFirestore.instance.collection('doctors').snapshots());
     return FirebaseFirestore.instance.collection('doctors').snapshots();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text("Doctors App"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () => logout(context),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AddOrEditDoctorPage(),
+            ),
+          );
+        },
+        child: const Icon(Icons.add),
+      ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.all(12),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Icon(Icons.grid_view_rounded, size: 28),
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.logout, color: Colors.red),
-                        onPressed: () => logout(context),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          border: Border.all(width: 1),
-                          borderRadius: const BorderRadius.all(Radius.circular(8)),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.calendar_today_outlined, size: 18),
-                            Gap(0, 5),
-                            const Text("15 Oct, 2020"),
-                            Gap(0, 5),
-                            const Icon(Icons.keyboard_arrow_down, size: 18),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+              const SizedBox(height: 10),
+              const Text(
+                "Top Doctors",
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
-
-              Gap(20, 0),
-              Text("Let's find doctor", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-              Gap(20, 0),
-              TextField(
-                decoration: InputDecoration(
-                  hintText: "Search",
-                  prefixIcon: Icon(Icons.search),
-                  filled: true,
-                  fillColor: Colors.grey[200],
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              Gap(20, 0),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    const CategoryItem(
-                      icon: Icons.medical_services,
-                      label: "Dental",
-                      color: Color(0xffffe4dd),
-                      textColor: Color(0xfffe6636),
-                    ),
-                    Gap(0, 15),
-                    const CategoryItem(
-                      icon: Icons.favorite,
-                      label: "Heart",
-                      color: Color(0xffDAE9FE),
-                      textColor: Color(0xff4185F9),
-                    ),
-                    Gap(0, 15),
-                    const CategoryItem(
-                      icon: Icons.psychology,
-                      label: "Brain",
-                      color: Color(0xffCFFFE9),
-                      textColor: Color(0xff22C877),
-                    ),
-                  ],
-                ),
-              ),
-              Gap(20, 0),
-              Text("Top Doctors", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              Gap(10, 0),
+              const SizedBox(height: 10),
               Expanded(
                 child: StreamBuilder<QuerySnapshot>(
                   stream: getDoctorsStream(),
@@ -135,6 +76,7 @@ class HomePage extends StatelessWidget {
                         final data = doc.data() as Map<String, dynamic>;
 
                         return DoctorCard(
+                          docId: doc.id,
                           name: data['name'] ?? '',
                           speciality: data['speciality'] ?? '',
                           hospital: data['hospital'] ?? '',
@@ -142,7 +84,25 @@ class HomePage extends StatelessWidget {
                           time: data['time'] ?? '',
                           fees: "\$${data['fees'] ?? 0}",
                           rating: data['rating'] ?? 0,
+                          likes: data['likes'] ?? 0,
                           imagePath: 'images/doctor.png',
+                          onEdit: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => AddOrEditDoctorPage(
+                                  docId: doc.id,
+                                  existingData: data,
+                                ),
+                              ),
+                            );
+                          },
+                          onLike: () async {
+                            await FirebaseFirestore.instance
+                                .collection('doctors')
+                                .doc(doc.id)
+                                .update({'likes': FieldValue.increment(1)});
+                          },
                         );
                       },
                     );
@@ -157,39 +117,17 @@ class HomePage extends StatelessWidget {
   }
 }
 
-// 🔽 هذه الكلاسات يجب أن تكون خارج HomePage:
-
-class CategoryItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color? color;
-  final Color? textColor;
-
-  const CategoryItem({super.key, required this.icon, required this.label, this.textColor, this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 125,
-      padding: EdgeInsets.symmetric(vertical: 21),
-      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(12)),
-      child: Column(
-        children: [
-          Icon(icon, size: 45, color: textColor),
-          Gap(10, 0),
-          Text(label, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: textColor)),
-        ],
-      ),
-    );
-  }
-}
-
 class DoctorCard extends StatelessWidget {
+  final String docId;
   final String name, speciality, hospital, location, time, fees, imagePath;
   final int rating;
+  final int likes;
+  final VoidCallback onEdit;
+  final VoidCallback onLike;
 
   const DoctorCard({
     super.key,
+    required this.docId,
     required this.name,
     required this.speciality,
     required this.hospital,
@@ -198,76 +136,94 @@ class DoctorCard extends StatelessWidget {
     required this.fees,
     required this.rating,
     required this.imagePath,
+    required this.likes,
+    required this.onEdit,
+    required this.onLike,
   });
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => DoctorPage())),
-      child: Card(
-        margin: EdgeInsets.only(bottom: 12),
-        elevation: 3,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Row(
-            children: [
-              Container(
-                width: 90,
-                height: 90,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  image: DecorationImage(
-                    image: AssetImage(imagePath),
-                    fit: BoxFit.cover,
-                    alignment: Alignment.topCenter,
-                  ),
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Row(
+          children: [
+            Container(
+              width: 90,
+              height: 90,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                image: DecorationImage(
+                  image: AssetImage(imagePath),
+                  fit: BoxFit.cover,
+                  alignment: Alignment.topCenter,
                 ),
               ),
-              Gap(0, 15),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(name, style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text(speciality, style: TextStyle(color: Colors.grey[800])),
-                    Text(hospital, style: TextStyle(fontSize: 12, color: Colors.grey[800])),
-                    Gap(6, 0),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(Icons.location_on, size: 16, color: Colors.grey[800]),
-                            Gap(0, 5),
-                            Text(location, style: TextStyle(fontSize: 12, color: Colors.grey[800])),
-                          ],
-                        ),
-                        Row(
-                          children: List.generate(
-                            5,
-                            (index) => Icon(
-                              Icons.star,
-                              size: 14,
-                              color: index < rating ? Colors.orange : Colors.grey[300],
-                            ),
+            ),
+            const SizedBox(width: 15),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(speciality, style: TextStyle(color: Colors.grey[800])),
+                  Text(hospital, style: TextStyle(fontSize: 12, color: Colors.grey[800])),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.location_on, size: 16, color: Colors.grey),
+                          const SizedBox(width: 5),
+                          Text(location, style: TextStyle(fontSize: 12, color: Colors.grey[800])),
+                        ],
+                      ),
+                      Row(
+                        children: List.generate(
+                          5,
+                          (index) => Icon(
+                            Icons.star,
+                            size: 14,
+                            color: index < rating ? Colors.orange : Colors.grey[300],
                           ),
                         ),
-                      ],
-                    ),
-                    Gap(5, 0),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(time, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                        Text("Clinic Fees: $fees", style: TextStyle(fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(time, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                      Text("Fees: $fees", style: const TextStyle(fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.favorite_border),
+                            onPressed: onLike,
+                          ),
+                          Text("$likes likes"),
+                        ],
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit),
+                        onPressed: onEdit,
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
